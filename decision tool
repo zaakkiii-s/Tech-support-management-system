@@ -1,0 +1,145 @@
+import numpy as np
+import skfuzzy as fuzz
+from skfuzzy import control as ctrl
+import sys
+from PyQt5.QtWidgets import QWidget, QApplication, QLabel, QVBoxLayout, QPushButton, QLineEdit, QTextEdit
+
+# Function to analyze problem description and determine input parameter value
+def analyze_problem(description):
+    # Placeholder logic for analyzing problem description
+    keywords = {
+        'Network': 80,
+        'Software': 60,
+        'Hardware': 40
+    }
+    for keyword, value in keywords.items():
+        if keyword.lower() in description.lower():
+            return value
+    return 20  # Default value if no keyword matches
+
+# Create Antecedents and Consequents for fuzzy logic
+input_parameter = ctrl.Antecedent(np.arange(0, 101, 1), 'input_parameter')
+urgency = ctrl.Consequent(np.arange(0, 101, 1), 'urgency')
+severity = ctrl.Consequent(np.arange(0, 101, 1), 'severity')
+impact = ctrl.Consequent(np.arange(0, 101, 1), 'impact')
+
+# Membership functions for input parameter
+input_parameter['low'] = fuzz.trimf(input_parameter.universe, [0, 0, 50])
+input_parameter['medium'] = fuzz.trimf(input_parameter.universe, [0, 50, 100])
+input_parameter['high'] = fuzz.trimf(input_parameter.universe, [50, 100, 100])
+
+# Membership functions for urgency
+urgency['low'] = fuzz.trimf(urgency.universe, [0, 0, 50])
+urgency['medium'] = fuzz.trimf(urgency.universe, [0, 50, 100])
+urgency['high'] = fuzz.trimf(urgency.universe, [50, 100, 100])
+
+# Membership functions for severity
+severity['low'] = fuzz.trimf(severity.universe, [0, 0, 50])
+severity['medium'] = fuzz.trimf(severity.universe, [0, 50, 100])
+severity['high'] = fuzz.trimf(severity.universe, [50, 100, 100])
+
+# Membership functions for impact
+impact['low'] = fuzz.trimf(impact.universe, [0, 0, 50])
+impact['medium'] = fuzz.trimf(impact.universe, [0, 50, 100])
+impact['high'] = fuzz.trimf(impact.universe, [50, 100, 100])
+
+# Define fuzzy rules for customer issue model
+r1 = ctrl.Rule(input_parameter['low'], urgency['low'])
+r2 = ctrl.Rule(input_parameter['medium'], urgency['medium'])
+r3 = ctrl.Rule(input_parameter['high'], urgency['high'])
+
+# Define fuzzy rules for server issue model
+r4 = ctrl.Rule(input_parameter['low'], severity['low'])
+r5 = ctrl.Rule(input_parameter['medium'], severity['medium'])
+r6 = ctrl.Rule(input_parameter['high'], severity['high'])
+
+# Define fuzzy rules for impact
+r7 = ctrl.Rule(input_parameter['low'], impact['low'])
+r8 = ctrl.Rule(input_parameter['medium'], impact['medium'])
+r9 = ctrl.Rule(input_parameter['high'], impact['high'])
+
+# Create control systems
+customer_issue_system = ctrl.ControlSystem([r1, r2, r3])
+server_issue_system = ctrl.ControlSystem([r4, r5, r6, r7, r8, r9])
+
+# GUI
+class TechSupportApp(QWidget):
+    def __init__(self):
+        super().__init__()
+        self.initUI()
+
+    def initUI(self):
+        layout = QVBoxLayout()
+        self.setWindowTitle('TECH SUPPORT MANAGEMENT SYSTEM')
+        
+        self.problem_label = QLabel('Problem Description:')
+        self.problem_field = QTextEdit(self)
+        self.issue_label = QLabel('Issue Type (Network, Software, Hardware):')
+        self.issue_field = QLineEdit(self)
+        
+        self.calculate_button = QPushButton('Calculate')
+        self.calculate_button.clicked.connect(self.calculate)
+
+        self.result_label = QLabel('Optimized Results:')
+        self.result_text = QLabel(self)
+
+        layout.addWidget(self.problem_label)
+        layout.addWidget(self.problem_field)
+        layout.addWidget(self.issue_label)
+        layout.addWidget(self.issue_field)
+        layout.addWidget(self.calculate_button)
+        layout.addWidget(self.result_label)
+        layout.addWidget(self.result_text)
+
+        self.setLayout(layout)
+
+    def calculate(self):
+        problem_description = self.problem_field.toPlainText()
+        issue_type = self.issue_field.text()
+        
+        if issue_type not in ["Network", "Software", "Hardware"]:
+            self.result_text.setText("Invalid issue type. Please enter 'Network', 'Software', or 'Hardware'.")
+        else:
+            input_val = analyze_problem(problem_description)
+            
+            # Simulate the customer issue system
+            simulate_customer_issue = ctrl.ControlSystemSimulation(customer_issue_system)
+            simulate_customer_issue.input['input_parameter'] = input_val
+            simulate_customer_issue.compute()
+
+            # Simulate the server issue system
+            simulate_server_issue = ctrl.ControlSystemSimulation(server_issue_system)
+            simulate_server_issue.input['input_parameter'] = input_val
+            simulate_server_issue.compute()
+
+            optimized_urgency = simulate_customer_issue.output['urgency']
+            optimized_severity = simulate_server_issue.output['severity']
+            optimized_impact = simulate_server_issue.output['impact']
+
+            # Calculate life cycle cost (LCC)
+            initial_cost = 20000  
+            monthly_support_cost = 3000  
+            server_maintenance_cost = 10000  
+
+            # Formula to calculate the total life cycle cost
+            LCC = initial_cost + (monthly_support_cost * 12) + server_maintenance_cost + optimized_impact
+
+            # Decision logic to fix or replace based on life cycle cost
+            if LCC > 50000:  # Placeholder threshold value
+                decision = "Replace"
+            else:
+                decision = "Fix"
+
+            res_text = f"Optimized Urgency: {optimized_urgency:.2f}\n"
+            res_text += f"Optimized Severity: {optimized_severity:.2f}\n"
+            res_text += f"Optimized Impact: {optimized_impact:.2f}\n"
+            res_text += f"Life Cycle Cost (LCC): {LCC:.2f}\n"
+            res_text += f"Decision: {decision}\n"
+
+            self.result_text.setText(res_text)
+
+if __name__ == "__main__":
+    app = QApplication(sys.argv)
+    ex = TechSupportApp()
+    ex.show()
+    sys.exit(app.exec_())
